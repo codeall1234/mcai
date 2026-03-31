@@ -4,46 +4,45 @@ import json
 import random
 
 async def test_ai_connection():
-    uri = "ws://localhost:8081"
+    uri = "ws://localhost:44444"
     print(f"Attempting to connect to Minecraft at {uri}...")
     
     try:
-        # Connect to the Fabric Mod
         async with websockets.connect(uri) as websocket:
-            print("Successfully connected to the Minecraft AI Bridge!")
-            print("Sending random inputs... (Go look at your Minecraft window!)")
+            print("Successfully connected! Sending chaos inputs...")
             
             while True:
-                # 1. THE EYES: Receive the data from Minecraft
+                # 1. THE EYES
                 state_message = await websocket.recv()
                 state = json.loads(state_message)
                 
-                # Print what the AI sees to your terminal
-                health = state.get('health')
-                cooldown = state.get('cooldown')
                 dist = state.get('distanceToOpponent')
-                print(f"AI Sees -> Health: {health}, Cooldown: {cooldown:.2f}, Nearest Enemy: {dist:.2f} blocks")
+                yaw_diff = state.get('yawDiff')
                 
-                # 2. THE BRAIN: Make a random decision
+                # Print the angle diff so you can see the math working!
+                print(f"Nearest Enemy: {dist:.2f} blocks away | Aim is off by {yaw_diff:.2f} degrees")
+                
+                # 2. THE BRAIN (Full Movement Enabled)
                 action = {
                     "forward": random.choice([True, False]),
-                    "backward": False,
-                    "left": False,
-                    "right": False,
-                    "jump": random.choice([True, False, False, False]), # Jump 25% of the time
-                    "sneak": False,
+                    "backward": random.choice([True, False]),
+                    "left": random.choice([True, False]),
+                    "right": random.choice([True, False]),
+                    "jump": random.choice([True, False, False]), 
+                    "sneak": random.choice([True, False, False]), # Crouch occasionally
                     "sprint": random.choice([True, False]),
-                    "attack": random.choice([True, False])
+                    "attack": random.choice([True, False]),
+                    
+                    # Randomly flick the mouse left, right, up, or down by a few degrees
+                    "deltaYaw": random.uniform(-10.0, 10.0),
+                    "deltaPitch": random.uniform(-5.0, 5.0)
                 }
                 
-                # 3. THE HANDS: Send the button presses back to Minecraft
+                # 3. THE HANDS
                 await websocket.send(json.dumps(action))
-                
-                # Pause for 1/20th of a second to match Minecraft's tick rate
                 await asyncio.sleep(0.05)
                 
     except ConnectionRefusedError:
-        print("Connection refused. Is Minecraft running and are you in a world?")
+        print("Connection refused. Is Minecraft running?")
 
-# Start the script
 asyncio.run(test_ai_connection())
