@@ -152,5 +152,5 @@ if __name__ == "__main__":
         print("\nTraining interrupted by user. Saving brain...")
     finally:
         # Save the brain so we can load it later!
-        model.save("minecraft_pvp_model")
-        print("Model saved to 'minecraft_pvp_model.zip'")
+        model.save("mcai_model_2")
+        print("Model saved")
