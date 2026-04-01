@@ -69,6 +69,13 @@ public class McaiClient implements ClientModInitializer {
                 state.addProperty("yawDiff", yawDiff);
                 state.addProperty("pitchDiff", pitchDiff);
 
+                // NEW: Perfect Hitbox Detection
+                boolean targetingEntity = false;
+                if (client.hitResult != null && client.hitResult.getType() == net.minecraft.world.phys.HitResult.Type.ENTITY) {
+                    targetingEntity = true;
+                }
+                state.addProperty("targetingEntity", targetingEntity);
+
                 aiServer.currentConnection.send(state.toString());
             }
 

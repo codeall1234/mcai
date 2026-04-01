@@ -69,6 +69,7 @@ class MinecraftPvPEnv(gym.Env):
         distance = float(state_data.get('distanceToOpponent', 100.0))
         yaw_diff = float(state_data.get('yawDiff', 0.0))
         pitch_diff = float(state_data.get('pitchDiff', 0.0))
+        targeting_entity = bool(state_data.get('targetingEntity', False))
 
         observation = np.array([current_health, cooldown, distance, yaw_diff, pitch_diff], dtype=np.float32)
 
@@ -91,13 +92,16 @@ class MinecraftPvPEnv(gym.Env):
         if current_health < self.previous_health:
             reward -= 50.0 # Ouch! Took damage.
 
-        # Reward 4: The Attack (Simulated hit detection)
-        # If the AI swings while fully charged, looking at the target, and in range!
+        # Reward 4: Perfect Hit Detection
         if mc_action["attack"] and cooldown <= 0.05:
-            if distance <= 3.0 and abs(yaw_diff) < 15.0 and abs(pitch_diff) < 15.0:
-                reward += 100.0 # HUGE REWARD: Likely landed a 1.9+ critical/standard hit!
+            if targeting_entity:
+                reward += 100.0  # Perfect hit directly on the hitbox!
             else:
-                reward -= 5.0 # Slight penalty for swinging at the air and wasting cooldown
+                reward -= 5.0    # Swung at the air. Penalty!
+
+        # Reward 5: Stop holding the left mouse button
+        if mc_action["attack"] and cooldown > 0.05:
+            reward -= 2.0  # Penalty for spamming click while cooldown is active
 
         # Update memory for the next frame
         self.previous_health = current_health
