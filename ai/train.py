@@ -16,10 +16,7 @@ class MinecraftPvPEnv(gym.Env):
 
         # -----------------------------------------------------------------
         # 1. THE ACTION SPACE (What the AI can press)
-        # We use a MultiDiscrete space. Think of it as an array of 10 switches.
         # [W, S, A, D, Jump, Sneak, Sprint, Attack, MouseX, MouseY]
-        # For buttons: 0 = unpressed, 1 = pressed
-        # For mouse: 0 = left/up, 1 = still, 2 = right/down
         # -----------------------------------------------------------------
         self.action_space = spaces.MultiDiscrete([2, 2, 2, 2, 2, 2, 2, 2, 3, 3])
 
@@ -33,9 +30,11 @@ class MinecraftPvPEnv(gym.Env):
             dtype=np.float32
         )
 
-        # Memory variables to calculate rewards
+        # Memory variables to calculate rewards and prevent spam
         self.previous_health = 20.0
         self.previous_distance = 100.0
+        self.previous_attack = False  
+        self.current_cooldown = 0.0   # Tracks the weapon charge
         self.steps_taken = 0
         self.max_steps = 1200 # 60 seconds at 20 ticks per second
 
@@ -43,7 +42,6 @@ class MinecraftPvPEnv(gym.Env):
         self.steps_taken += 1
 
         # Map the AI's numbers back to Minecraft inputs
-        # Mouse logic: 0 -> -5 degrees, 1 -> 0 degrees, 2 -> +5 degrees
         mc_action = {
             "forward": bool(action[0]),
             "backward": bool(action[1]),
@@ -57,6 +55,14 @@ class MinecraftPvPEnv(gym.Env):
             "deltaPitch": float((action[9] - 1) * 5.0)
         }
 
+        # =================================================================
+        # THE HARD BLOCK (Action Masking)
+        # If the weapon was on cooldown last frame, physically block the 
+        # AI from sending an attack command to the server this frame.
+        # =================================================================
+        if self.current_cooldown > 0.05:
+            mc_action["attack"] = False
+
         # Send action to Minecraft
         self.ws.send(json.dumps(mc_action))
 
@@ -65,13 +71,16 @@ class MinecraftPvPEnv(gym.Env):
         state_data = json.loads(state_str)
 
         current_health = float(state_data.get('health', 20.0))
-        cooldown = float(state_data.get('cooldown', 0.0))
+        
+        # Update cooldown memory for the NEXT frame to use
+        self.current_cooldown = float(state_data.get('cooldown', 0.0))
+        
         distance = float(state_data.get('distanceToOpponent', 100.0))
         yaw_diff = float(state_data.get('yawDiff', 0.0))
         pitch_diff = float(state_data.get('pitchDiff', 0.0))
         targeting_entity = bool(state_data.get('targetingEntity', False))
 
-        observation = np.array([current_health, cooldown, distance, yaw_diff, pitch_diff], dtype=np.float32)
+        observation = np.array([current_health, self.current_cooldown, distance, yaw_diff, pitch_diff], dtype=np.float32)
 
         # -----------------------------------------------------------------
         # 3. THE REWARD FUNCTION (How we train the dog)
@@ -88,24 +97,32 @@ class MinecraftPvPEnv(gym.Env):
         if abs(yaw_diff) < 10.0 and abs(pitch_diff) < 10.0:
             reward += 0.5  # Good! Keeping crosshair on target.
 
-        # Reward 3: Survival & Damage
-        if current_health < self.previous_health:
-            reward -= 50.0 # Ouch! Took damage.
+        # -----------------------------------------------------------------
+        # TRUE CLICK DETECTION
+        # -----------------------------------------------------------------
+        current_attack = mc_action["attack"]
+        just_clicked = current_attack and not self.previous_attack
 
         # Reward 4: Perfect Hit Detection
-        if mc_action["attack"] and cooldown <= 0.05:
+        if just_clicked and self.current_cooldown <= 0.05:
             if targeting_entity:
-                reward += 100.0  # Perfect hit directly on the hitbox!
+                reward += 100.0  # Perfect timed click directly on the hitbox!
             else:
-                reward -= 5.0    # Swung at the air. Penalty!
+                reward -= 5.0    # Clicked at the air. Penalty!
 
-        # Reward 5: Stop holding the left mouse button
-        if mc_action["attack"] and cooldown > 0.05:
-            reward -= 2.0  # Penalty for spamming click while cooldown is active
+        # Reward 5: The "No Spamming" Penalty
+        if current_attack and self.previous_attack:
+            reward -= 1.0
+
+        # Reward 6: Massive Penalty for taking damage!
+        if current_health < self.previous_health:
+            damage_taken = self.previous_health - current_health
+            reward -= (damage_taken * 50.0) 
 
         # Update memory for the next frame
         self.previous_health = current_health
         self.previous_distance = distance
+        self.previous_attack = current_attack
 
         # Check if the episode is over
         terminated = current_health <= 0.0
@@ -118,8 +135,10 @@ class MinecraftPvPEnv(gym.Env):
         self.steps_taken = 0
         self.previous_health = 20.0
         self.previous_distance = 100.0
+        self.previous_attack = False 
+        self.current_cooldown = 0.0 # Reset weapon state
         
-        # We just flush the buffer and grab the current frame
+        # Flush the buffer and grab the current frame
         state_str = self.ws.recv()
         state_data = json.loads(state_str)
         
@@ -141,16 +160,15 @@ if __name__ == "__main__":
     env = MinecraftPvPEnv()
 
     print("Initializing PPO Brain...")
-    # verbose=1 prints the training logs to your terminal so you can see it learning
-    model = PPO("MlpPolicy", env, verbose=1)
+    # tensorboard_log saves the data so you can watch the live graphs!
+    model = PPO("MlpPolicy", env, verbose=1, tensorboard_log="./minecraft_ai_logs/")
 
     print("Starting Training! Look at Minecraft!")
     try:
-        # Train for 500,000 frames (This will take a few hours at normal speed)
+        # 500k steps is a great starting point for testing new logic
         model.learn(total_timesteps=500000)
     except KeyboardInterrupt:
         print("\nTraining interrupted by user. Saving brain...")
     finally:
-        # Save the brain so we can load it later!
-        model.save("mcai_model_2")
+        model.save("mcai-model-4") # Updated the save name so you don't overwrite older tests
         print("Model saved")
