@@ -6,7 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Mcai implements ModInitializer {
-    public static final String MOD_ID = "pvpai";
+    public static final String MOD_ID = "mcai";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     @Override

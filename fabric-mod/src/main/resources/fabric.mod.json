@@ -17,6 +17,9 @@
 	"entrypoints": {
 		"client": [
 			"ios.mcai.McaiClient"
+		],
+		"main": [
+			"ios.mcai.Mcai"
 		]
 	},
 	"mixins": [

@@ -75,8 +75,19 @@ public class McaiClient implements ClientModInitializer {
                     targetingEntity = true;
                 }
                 state.addProperty("targetingEntity", targetingEntity);
+                
+                // Include enemy health (0 if no target)
+                float enemyHealth = (target != null) ? target.getHealth() : 0.0f;
+                state.addProperty("enemyHealth", enemyHealth);
+                
+                // Include current training stage in state
+                state.addProperty("trainingStage", aiServer.getTrainingStage());
+                state.addProperty("stageName", aiServer.getStageName());
 
-                aiServer.currentConnection.send(state.toString());
+                // Send state only if connection is still open
+                if (aiServer.currentConnection != null && aiServer.currentConnection.isOpen()) {
+                    aiServer.currentConnection.send(state.toString());
+                }
             }
 
             // --- 2. THE HANDS (Executing Commands) ---

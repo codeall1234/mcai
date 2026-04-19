@@ -10,9 +10,9 @@ def main():
     print("Connecting to Minecraft...")
     env = MinecraftPvPEnv()
 
-    print("Loading the trained brain (minecraft_pvp_model.zip)...")
+    print("Loading the trained brain (mcai_model_latest.zip)...")
     # Load the model from the zip file
-    model = PPO.load("mcai_model_2")
+    model = PPO.load("mcai_model_latest")
 
     print("Brain loaded! Spawning into the world...")
     
@@ -36,7 +36,7 @@ def main():
     except KeyboardInterrupt:
         print("\nTesting stopped by user.")
     finally:
-        env.ws.close()
+        env.close()
 
 if __name__ == "__main__":
     main()

@@ -24,9 +24,21 @@ public class AiWebSocketServer extends WebSocketServer {
     public float deltaPitch = 0.0f;
 
     public WebSocket currentConnection = null;
+    
+    // Training stage (0=zombie, 1=spider, 2=advanced/AI)
+    public int trainingStage = 0;
+    public String stageName = "zombie";
 
     public AiWebSocketServer(InetSocketAddress address) {
         super(address);
+    }
+    
+    public int getTrainingStage() {
+        return trainingStage;
+    }
+    
+    public String getStageName() {
+        return stageName;
     }
 
     @Override
@@ -62,6 +74,16 @@ public class AiWebSocketServer extends WebSocketServer {
             // Mouse
             if (json.has("deltaYaw")) this.deltaYaw = json.get("deltaYaw").getAsFloat();
             if (json.has("deltaPitch")) this.deltaPitch = json.get("deltaPitch").getAsFloat();
+            
+            // Training stage command from Python
+            if (json.has("setTrainingStage")) {
+                this.trainingStage = json.get("setTrainingStage").getAsInt();
+                System.out.println("AI Training Stage Changed to: " + this.trainingStage);
+            }
+            if (json.has("stageName")) {
+                this.stageName = json.get("stageName").getAsString();
+                System.out.println("AI Training Opponent: " + this.stageName);
+            }
             
         } catch (Exception e) {
             System.err.println("Failed to parse AI command: " + message);
