@@ -28,6 +28,14 @@ loom {
 		}
 	}
 
+	runs {
+		client2 {
+			client()
+			ideConfigGenerated = true
+			name = "Minecraft Client 2"
+			runDir = "run2"
+		}
+	}
 }
 
 dependencies {

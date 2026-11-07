@@ -40,7 +40,6 @@ async def test_ai_connection():
                 
                 # 3. THE HANDS
                 await websocket.send(json.dumps(action))
-                await asyncio.sleep(0.05)
                 
     except ConnectionRefusedError:
         print("Connection refused. Is Minecraft running?")

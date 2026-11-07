@@ -1,0 +1,20 @@
+# ===================================================================
+#  MCAI BOT KIT CONFIGURATION
+# ===================================================================
+# Customize the items and armor bots spawn with.
+# Each line is executed when a bot spawns or respawns.
+# Use {bot} as a placeholder for bot1 and bot2.
+#
+# Available slots:
+#   weapon.mainhand, weapon.offhand
+#   armor.head, armor.chest, armor.legs, armor.feet
+# ===================================================================
+
+# Main Weapon (Official Sword PvP: Sharpness 5, Unbreaking 3 Diamond Sword)
+item replace entity {bot} weapon.mainhand with diamond_sword[enchantments={levels:{sharpness:5,unbreaking:3}},unbreakable={}]
+
+# Armor (Official Sword PvP: Full Protection 4, Unbreaking 3 Diamond Armor)
+item replace entity {bot} armor.head with diamond_helmet[enchantments={levels:{protection:4,unbreaking:3}},unbreakable={}]
+item replace entity {bot} armor.chest with diamond_chestplate[enchantments={levels:{protection:4,unbreaking:3}},unbreakable={}]
+item replace entity {bot} armor.legs with diamond_leggings[enchantments={levels:{protection:4,unbreaking:3}},unbreakable={}]
+item replace entity {bot} armor.feet with diamond_boots[enchantments={levels:{protection:4,unbreaking:3}},unbreakable={}]

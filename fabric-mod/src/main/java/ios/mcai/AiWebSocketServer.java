@@ -23,37 +23,37 @@ public class AiWebSocketServer extends WebSocketServer {
     public float deltaYaw = 0.0f;
     public float deltaPitch = 0.0f;
 
-    public WebSocket currentConnection = null;
-    
-    // Training stage (0=zombie, 1=spider, 2=advanced/AI)
-    public int trainingStage = 0;
-    public String stageName = "zombie";
+    // Carpet & High TPS Flow-Control
+    public volatile boolean awaitingAction = false;
+    public int awaitingTicks = 0;
+    public final java.util.Queue<String> pendingCommands = new java.util.concurrent.ConcurrentLinkedQueue<>();
 
-    public AiWebSocketServer(InetSocketAddress address) {
+    public WebSocket currentConnection = null;
+    private final String botName;
+
+    public AiWebSocketServer(InetSocketAddress address, String botName) {
         super(address);
-    }
-    
-    public int getTrainingStage() {
-        return trainingStage;
-    }
-    
-    public String getStageName() {
-        return stageName;
+        this.botName = botName;
+        setReuseAddr(true);
+        setTcpNoDelay(true);
     }
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        System.out.println("Python Script Connected!");
+        System.out.println("AI Connected for [" + botName + "] on port " + getPort() + "!");
         this.currentConnection = conn;
+        this.awaitingAction = false;
     }
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-        System.out.println("AI Disconnected!");
+        System.out.println("AI Disconnected for [" + botName + "]!");
         this.currentConnection = null;
+        this.awaitingAction = false;
         this.forward = false; this.backward = false; this.left = false; this.right = false;
         this.jump = false; this.sneak = false; this.sprint = false; this.attack = false;
         this.deltaYaw = 0.0f; this.deltaPitch = 0.0f;
+        this.pendingCommands.clear();
     }
 
     @Override
@@ -61,13 +61,18 @@ public class AiWebSocketServer extends WebSocketServer {
         try {
             JsonObject json = JsonParser.parseString(message).getAsJsonObject();
             
+            // In-game command support (e.g. /tick rate 100)
+            if (json.has("command")) {
+                this.pendingCommands.add(json.get("command").getAsString());
+            }
+
             // Keyboard
             if (json.has("forward")) this.forward = json.get("forward").getAsBoolean();
             if (json.has("backward")) this.backward = json.get("backward").getAsBoolean();
             if (json.has("left")) this.left = json.get("left").getAsBoolean();
             if (json.has("right")) this.right = json.get("right").getAsBoolean();
             if (json.has("jump")) this.jump = json.get("jump").getAsBoolean();
-            if (json.has("sneak")) this.sneak = json.get("sneak").getAsBoolean();
+            this.sneak = false; // Crouching completely removed
             if (json.has("sprint")) this.sprint = json.get("sprint").getAsBoolean();
             if (json.has("attack")) this.attack = json.get("attack").getAsBoolean();
             
@@ -75,31 +80,27 @@ public class AiWebSocketServer extends WebSocketServer {
             if (json.has("deltaYaw")) this.deltaYaw = json.get("deltaYaw").getAsFloat();
             if (json.has("deltaPitch")) this.deltaPitch = json.get("deltaPitch").getAsFloat();
             
-            // Training stage command from Python
-            if (json.has("setTrainingStage")) {
-                this.trainingStage = json.get("setTrainingStage").getAsInt();
-                System.out.println("AI Training Stage Changed to: " + this.trainingStage);
-            }
-            if (json.has("stageName")) {
-                this.stageName = json.get("stageName").getAsString();
-                System.out.println("AI Training Opponent: " + this.stageName);
-            }
-            
+            // Flow-control: action received, ready for next state tick!
+            this.awaitingAction = false;
+            this.awaitingTicks = 0;
         } catch (Exception e) {
-            System.err.println("Failed to parse AI command: " + message);
+            System.err.println("Failed to parse AI command for " + botName + ": " + message);
+            this.awaitingAction = false;
+            this.awaitingTicks = 0;
         }
     }
 
     @Override
     public void onError(WebSocket conn, Exception ex) {
-        System.err.println("AI WEBSOCKET ERROR ENCOUNTERED:");
+        System.err.println("AI WEBSOCKET ERROR on [" + botName + "]:");
         ex.printStackTrace();
     }
 
     @Override
     public void onStart() {
         System.out.println("=========================================");
-        System.out.println(" SUCCESS: AI WebSocket Bridge started on port: " + getPort());
+        System.out.println(" SUCCESS: AI WebSocket Bridge started for [" + botName + "] on port: " + getPort());
+        System.out.println(" Carpet Flow-Control Enabled (TCP_NODELAY: ON)");
         System.out.println("=========================================");
     }
 }
